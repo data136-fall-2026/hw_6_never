@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Create Lecture</title></head>
+<body style="text-align:center; font-family:Arial;">
+<h1>Create a New Lecture</h1>
+<form action="/app/createLecture/" method="post">
+    <label>Course:
+    <select name="choice">
+    {% for course in courses %}
+        <option value="{{ course.name }}">{{ course.name }}</option>
+    {% endfor %}
+    </select>
+    </label><br><br>
+    <label>QR Data (optional): <input type="text" name="qrdata"></label><br><br>
+    <input type="submit" value="Create Lecture">
+</form>
+</body>
+</html>
