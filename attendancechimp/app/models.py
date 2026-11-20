@@ -52,6 +52,7 @@ class StudentProfile(models.Model):
 
 class Course(models.Model):
     """A course taught by a single instructor."""
+    course = models.CharField(max_length=32, unique=True)   # e.g. "DATA13600"
     name = models.CharField(max_length=255, unique=True)
     instructor = models.ForeignKey(User, on_delete=models.CASCADE,
                                    related_name='courses_taught')
@@ -126,6 +127,9 @@ class QRCodeUpload(models.Model):
         return f"Upload by {self.student.username} at {self.uploaded_at}"
 
 
+
+
+
 # ---------------------------------------------------------------------------
 # Helper  functions
 # ---------------------------------------------------------------------------
@@ -138,4 +142,5 @@ def is_instructor(user):
 def is_student(user):
     """Return True if the user has a StudentProfile."""
     return hasattr(user, 'student_profile')
+
 

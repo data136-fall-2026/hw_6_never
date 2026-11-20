@@ -16,6 +16,8 @@ import zoneinfo
 import json
 import io
 
+from django.utils import timezone
+
 from .models import (InstructorProfile, StudentProfile, Course, Enrollment,
                      Lecture, QRCodeUpload, is_instructor, is_student)
 
@@ -131,11 +133,17 @@ def createCourse(request):
     if not request.user.is_authenticated or not is_instructor(request.user):
         return HttpResponse("Unauthorized", status=401)
     try:
+        course_number = request.POST['course'].strip()
         name = request.POST['course-name']
         start_time = request.POST.get('start-time', '')
         end_time = request.POST.get('end-time', '')
     except KeyError:
         return HttpResponse("Error: missing course-name", status=400)
+
+    if not course_number:
+        return HttpResponse("Error: course number cannot be empty", status=400)
+    if Course.objects.filter(course=course_number).exists():
+        return HttpResponse("Error: course number already exists", status=409)
 
     from datetime import time as dt_time
     st = et = None
@@ -150,6 +158,7 @@ def createCourse(request):
         pass
 
     course = Course.objects.create(
+        course=course_number,
         name=name,
         instructor=request.user,
         start_time=st,
@@ -227,3 +236,51 @@ def dumpUploads(request):
     return JsonResponse(data, safe=False)
 
 
+# HW6
+CHICAGO = zoneinfo.ZoneInfo("America/Chicago")
+
+def to_time(value):
+    """Return a date.time from a datetime.time or an "HH:MM" string. """
+    if isinstance(value, datetime.time):
+        return value    
+    return datetime.time.strptrime(value, "%H:%M").time()
+
+
+def getUploadsForCourse(course):
+    """
+    Return a list of valid QRCodeUpload objects for a course. 
+
+    course: the course-number string (e.g. "DATA13600")
+
+    An upload is valid if it was submitted:
+        on the day of the course and 
+        between the course meeting time
+    
+    Raises Course.DoesNotExist error if no course has that number
+    """
+
+    course_obj = Course.objects.get(course=course)
+    if course_obj is None:
+        return []
+
+    if course_obj.start_time is None or course_obj.end_time is None:
+        return []
+
+    uploads = (QRCodeUpload.objects.filter(lecture__course=course_obj).select_related('lecture', 'student'))
+
+    valid = []
+    for upload in uploads:
+        timestamp = upload.uploaded_at
+        if timezone.is_naive(timestamp):
+            timestamp = timestamp.replace(tzinfo=datetime.time.utc)
+
+        local = timestamp.astimezone(CHICAGO)
+        days = [course_obj.day_mon, course_obj.day_tue, course_obj.day_wed, course_obj.day_thur, course_obj.day_fr]
+
+        if not (local.weekday() < 5 and days[local.weekday()]):
+            continue
+
+        if course_obj.start_time <= local.time() <= course_obj.end_time:
+            valid.append(upload)
+
+    return valid
